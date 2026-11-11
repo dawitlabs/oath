@@ -1,0 +1,258 @@
+{
+	"oath": 1,
+	"service": "billing",
+	"samples": 100,
+	"endpoints": [
+		{
+			"method": "GET",
+			"path": "/v1/invoices",
+			"samples": 30,
+			"responses": {
+				"200": {
+					"samples": 30,
+					"fields": {
+						"data": {
+							"type": "array",
+							"presence": "always",
+							"nullable": false,
+							"samples": 30,
+							"confidence": "high"
+						},
+						"data[]": {
+							"type": "object",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].amount": {
+							"type": "number",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].currency": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].customer": {
+							"type": "object",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].customer.id": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].customer.name": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].id": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].legacy_id": {
+							"type": "string",
+							"presence": "sometimes",
+							"nullable": false,
+							"samples": 40,
+							"confidence": "high"
+						},
+						"data[].line_items": {
+							"type": "array",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"data[].line_items[]": {
+							"type": "object",
+							"presence": "always",
+							"nullable": false,
+							"samples": 120,
+							"confidence": "high"
+						},
+						"data[].line_items[].quantity": {
+							"type": "number",
+							"presence": "always",
+							"nullable": false,
+							"samples": 120,
+							"confidence": "high"
+						},
+						"data[].line_items[].sku": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 120,
+							"confidence": "high"
+						},
+						"data[].status": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 60,
+							"confidence": "high"
+						},
+						"has_more": {
+							"type": "boolean",
+							"presence": "always",
+							"nullable": false,
+							"samples": 30,
+							"confidence": "high"
+						}
+					}
+				}
+			}
+		},
+		{
+			"method": "GET",
+			"path": "/v1/invoices/{id}",
+			"samples": 60,
+			"responses": {
+				"200": {
+					"samples": 48,
+					"fields": {
+						"amount": {
+							"type": "number",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"currency": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"customer": {
+							"type": "object",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"customer.id": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"customer.name": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"id": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"legacy_id": {
+							"type": "string",
+							"presence": "sometimes",
+							"nullable": false,
+							"samples": 32,
+							"confidence": "high"
+						},
+						"line_items": {
+							"type": "array",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						},
+						"line_items[]": {
+							"type": "object",
+							"presence": "always",
+							"nullable": false,
+							"samples": 96,
+							"confidence": "high"
+						},
+						"line_items[].quantity": {
+							"type": "number",
+							"presence": "always",
+							"nullable": false,
+							"samples": 96,
+							"confidence": "high"
+						},
+						"line_items[].sku": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 96,
+							"confidence": "high"
+						},
+						"status": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 48,
+							"confidence": "high"
+						}
+					}
+				},
+				"404": {
+					"samples": 12,
+					"fields": {
+						"error": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 12,
+							"confidence": "medium"
+						},
+						"message": {
+							"type": "string",
+							"presence": "always",
+							"nullable": false,
+							"samples": 12,
+							"confidence": "medium"
+						}
+					}
+				}
+			}
+		},
+		{
+			"method": "POST",
+			"path": "/v1/invoices/send",
+			"samples": 10,
+			"responses": {
+				"202": {
+					"samples": 10,
+					"fields": {
+						"queued": {
+							"type": "boolean",
+							"presence": "always",
+							"nullable": false,
+							"samples": 10,
+							"confidence": "medium"
+						}
+					}
+				}
+			}
+		}
+	]
+}

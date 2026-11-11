@@ -1,0 +1,37 @@
+{
+	"name": "oath-cli",
+	"version": "0.1.0",
+	"description": "The contract your traffic already wrote. Build the real behavioral contract of an API from recorded traffic and catch breaking changes before you ship.",
+	"license": "MIT",
+	"type": "module",
+	"bin": {
+		"oath": "dist/cli.js"
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"keywords": [
+		"api",
+		"contract",
+		"breaking-changes",
+		"hyrums-law",
+		"openapi",
+		"har",
+		"cli"
+	],
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"test": "node --test \"test/**/*.test.ts\"",
+		"check": "biome check ."
+	},
+	"packageManager": "pnpm@10.29.3",
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.6",
+		"@types/node": "^26.6.6",
+		"typescript": "^7.0.2"
+	}
+}
