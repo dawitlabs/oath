@@ -3,6 +3,12 @@
 	"version": "0.1.0",
 	"description": "The contract your traffic already wrote. Build the real behavioral contract of an API from recorded traffic and catch breaking changes before you ship.",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dawitlabs/oath.git"
+	},
+	"homepage": "https://github.com/dawitlabs/oath#readme",
+	"bugs": "https://github.com/dawitlabs/oath/issues",
 	"type": "module",
 	"bin": {
 		"oath": "dist/cli.js"
