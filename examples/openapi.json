@@ -1,0 +1,110 @@
+{
+	"openapi": "3.1.0",
+	"info": { "title": "Billing API", "version": "1.0.0" },
+	"servers": [{ "url": "https://api.example.com/v1" }],
+	"paths": {
+		"/invoices": {
+			"get": {
+				"responses": {
+					"200": {
+						"description": "A page of invoices",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"required": ["data", "has_more"],
+									"properties": {
+										"data": {
+											"type": "array",
+											"items": { "$ref": "#/components/schemas/Invoice" }
+										},
+										"has_more": { "type": "boolean" }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/invoices/{invoiceId}": {
+			"get": {
+				"parameters": [
+					{
+						"name": "invoiceId",
+						"in": "path",
+						"required": true,
+						"schema": { "type": "string" }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "An invoice",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/Invoice" }
+							}
+						}
+					},
+					"404": {
+						"description": "Not found",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/Error" }
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"Invoice": {
+				"type": "object",
+				"required": [
+					"id",
+					"amount",
+					"currency",
+					"status",
+					"customer",
+					"line_items"
+				],
+				"properties": {
+					"id": { "type": "string" },
+					"amount": { "type": "integer" },
+					"currency": { "type": "string" },
+					"status": { "type": "string", "enum": ["paid", "open", "void"] },
+					"due_date": { "type": "string", "format": "date" },
+					"customer": {
+						"type": "object",
+						"required": ["id", "name"],
+						"properties": {
+							"id": { "type": "string" },
+							"name": { "type": "string" }
+						}
+					},
+					"line_items": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["sku", "quantity"],
+							"properties": {
+								"sku": { "type": "string" },
+								"quantity": { "type": "integer" }
+							}
+						}
+					}
+				}
+			},
+			"Error": {
+				"type": "object",
+				"required": ["error", "message"],
+				"properties": {
+					"error": { "type": "string" },
+					"message": { "type": "string" }
+				}
+			}
+		}
+	}
+}

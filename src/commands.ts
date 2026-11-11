@@ -38,7 +38,11 @@ export type Flags = {
 
 export class UsageError extends Error {}
 
-const SPEC_LABELS: Labels = { breaking: "violation", safe: "info" };
+const SPEC_LABELS: Labels = {
+	breaking: "violation",
+	breakingPlural: "violations",
+	safe: "info",
+};
 
 async function loadSamples(files: string[], flags: Flags): Promise<Sample[]> {
 	if (files.length === 0) throw new UsageError("No traffic files given");

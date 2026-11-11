@@ -6,15 +6,17 @@ Open-source CLI that builds the real behavioral contract of an API from recorded
 - **Insight:** the written spec is not the contract; production traffic is (Hyrum's Law). Positioning angle: AI agents now write the changes.
 - **Product source of truth:** Notion pages "Oath — Company & Product" and "Oath — Technical Design".
 
-## Built (v0.1)
+## Built (v0.2)
 
-- `oath contract` (HAR + JSONL → `oath.contract.json`), `oath diff`, `oath check`
-- Path templating, presence/type/nullability inference, confidence by sample count
-- Filters: `--only-breaking`, `--min-confidence`, `--ignore`, `--json`
+- `oath capture` local proxy (shape-only JSONL), `oath contract` (HAR + JSONL), `oath diff`, `oath check`, `oath spec` (OpenAPI 3 JSON)
+- Caller-aware contracts: each field lists callers from `--caller-header` (default user-agent)
+- Path templating: ID regexes + learned high-cardinality segments
+- Output: text, `--json`, `--markdown`; GitHub Action in `action.yml` posts PR comments
+- Filters: `--only-breaking`, `--min-confidence`, `--ignore`
 
 ## Not built
 
-- `oath capture` proxy, ordering/error-shape rules, hosted plane
+- YAML OpenAPI, stable-ordering rules, hosted plane (history, who-depends-on-what across services)
 
 ## Stack
 
@@ -25,5 +27,6 @@ Open-source CLI that builds the real behavioral contract of an API from recorded
 ## Commands
 
 - `pnpm test` · `pnpm typecheck` · `pnpm check` · `pnpm build`
+- Release: bump `version`, `pnpm build`, Dawit runs `npm publish` (browser 2FA). The CI `action` job uses `oath-cli@latest`, so publish before merging features the action depends on.
 
 See `docs/decisions.md` and `docs/gotchas.md`.

@@ -55,12 +55,17 @@ export function formatContract(contract: Contract): string {
 	return lines.join("\n");
 }
 
-export type Labels = { breaking: string; safe: string };
+export type Labels = { breaking: string; breakingPlural: string; safe: string };
 
 export const DIFF_LABELS: Labels = {
 	breaking: "breaking",
+	breakingPlural: "breaking changes",
 	safe: "non-breaking",
 };
+
+export function countBreaking(count: number, labels: Labels): string {
+	return `${count} ${count === 1 ? labels.breaking : labels.breakingPlural}`;
+}
 
 export function formatDiff(
 	changes: Change[],
@@ -92,7 +97,7 @@ export function formatDiff(
 		"",
 		changes.length === 0
 			? "No behavioral differences."
-			: `Summary: ${breaking} ${labels.breaking}, ${changes.length - breaking} ${labels.safe}`,
+			: `Summary: ${countBreaking(breaking, labels)}, ${changes.length - breaking} ${labels.safe}`,
 	);
 	return lines.join("\n");
 }

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Unchanged traffic passes
+        uses: ./
+        with:
+          contract: examples/baseline.contract.json
+          traffic: examples/baseline.jsonl
+          comment: "false"
+      - name: Changed traffic is caught
+        id: changed
+        uses: ./
+        with:
+          contract: examples/baseline.contract.json
+          traffic: examples/current.jsonl
+          fail-on-breaking: "false"
+      - name: Assert breaking changes were found
+        run: test "${{ steps.changed.outputs.breaking }}" = "true"

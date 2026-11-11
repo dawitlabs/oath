@@ -1,6 +1,6 @@
 {
 	"name": "oath-cli",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "The contract your traffic already wrote. Build the real behavioral contract of an API from recorded traffic and catch breaking changes before you ship.",
 	"license": "MIT",
 	"repository": {

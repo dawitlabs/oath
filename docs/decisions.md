@@ -31,3 +31,27 @@ Removing `customer` reports one change, not one per nested field.
 ## No values stored
 
 Contracts hold paths, types, presence and counts only. Enum detection (SRS FR-10) is skipped because it would store real values.
+
+## Capture writes shapes, not values (v0.2)
+
+`oath capture` replaces strings with `""`, numbers with `0`, booleans with `false`. Contracts only need types and presence, so real values never touch disk. This keeps the "no payloads" promise from the technical design.
+
+## Callers come from one header
+
+`--caller-header` (default `user-agent`, cut to the product token like `partner-sdk/2.1`). Teams with a client-id header get exact callers; everyone else gets something useful with zero setup. Up to 50 callers are stored per field.
+
+## Spec mode labels
+
+`oath spec` reuses the diff engine. "Breaking" there means "violates the spec" (wrong type, required field missing, unexpected null) and exits 1. Undocumented and never-observed items are info only.
+
+## No YAML parser
+
+Specs must be JSON to keep zero runtime dependencies. The error message tells users to convert with `npx js-yaml`. Add a YAML dependency only if users ask.
+
+## Learned path templates
+
+A path position becomes a parameter when it has 10+ distinct values, at least half the hits are distinct, and 80%+ of values contain a digit (or there are 50+ distinct values). The digit rule stops `/v1/users`, `/v1/orders`, … from collapsing into `/v1/{id}` on small traffic.
+
+## GitHub Action is composite and uses npx
+
+No bundled JS to maintain. One PR comment is found by the `<!-- oath-diff -->` marker and updated in place. Commenting is `continue-on-error` so fork PRs without write tokens still get the check.

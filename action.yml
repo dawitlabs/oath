@@ -1,0 +1,76 @@
+name: Oath behavioral contract check
+description: Compare observed API traffic against a committed Oath contract and post the behavioral diff on the pull request.
+author: dawitlabs
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  contract:
+    description: Baseline contract file
+    default: oath.contract.json
+  traffic:
+    description: Traffic files to check (space separated, globs allowed)
+    required: true
+  args:
+    description: Extra flags for oath check, e.g. --only-breaking --min-confidence medium
+    default: ""
+  comment:
+    description: Post or update a pull request comment with the diff
+    default: "true"
+  fail-on-breaking:
+    description: Fail the job when breaking changes are found
+    default: "true"
+  version:
+    description: oath-cli version from npm
+    default: latest
+  github-token:
+    description: Token used to comment on the pull request
+    default: ${{ github.token }}
+
+outputs:
+  breaking:
+    description: "true when breaking changes were found"
+    value: ${{ steps.check.outputs.breaking }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        OATH_VERSION: ${{ inputs.version }}
+        OATH_CONTRACT: ${{ inputs.contract }}
+        OATH_TRAFFIC: ${{ inputs.traffic }}
+        OATH_ARGS: ${{ inputs.args }}
+      run: |
+        set +e
+        npx --yes "oath-cli@${OATH_VERSION}" check --contract "$OATH_CONTRACT" $OATH_TRAFFIC $OATH_ARGS --markdown > "$RUNNER_TEMP/oath.md"
+        code=$?
+        set -e
+        cat "$RUNNER_TEMP/oath.md"
+        if [ "$code" -ge 2 ]; then exit "$code"; fi
+        cat "$RUNNER_TEMP/oath.md" >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" -eq 1 ]; then echo "breaking=true" >> "$GITHUB_OUTPUT"; else echo "breaking=false" >> "$GITHUB_OUTPUT"; fi
+
+    - if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        body="$RUNNER_TEMP/oath.md"
+        existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- oath-diff -->")) | .id' | head -n 1)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@"$body" > /dev/null
+        else
+          gh pr comment "$PR" --repo "$REPO" --body-file "$body"
+        fi
+
+    - if: steps.check.outputs.breaking == 'true' && inputs.fail-on-breaking == 'true'
+      shell: bash
+      run: |
+        echo "::error::Oath found breaking behavioral changes"
+        exit 1

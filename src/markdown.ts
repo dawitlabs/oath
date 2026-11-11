@@ -1,5 +1,10 @@
 import type { Change } from "./diff.ts";
-import { DIFF_LABELS, describeCallers, type Labels } from "./format.ts";
+import {
+	countBreaking,
+	DIFF_LABELS,
+	describeCallers,
+	type Labels,
+} from "./format.ts";
 
 const MARKER = "<!-- oath-diff -->";
 
@@ -26,8 +31,8 @@ export function formatDiffMarkdown(
 	}
 	lines.push(
 		breaking > 0
-			? `**${breaking} ${labels.breaking}**, ${changes.length - breaking} ${labels.safe}`
-			: `No ${labels.breaking} changes · ${changes.length} ${labels.safe}`,
+			? `**${countBreaking(breaking, labels)}**, ${changes.length - breaking} ${labels.safe}`
+			: `No ${labels.breakingPlural} · ${changes.length} ${labels.safe}`,
 	);
 	const groups = new Map<string, Change[]>();
 	for (const change of changes) {
