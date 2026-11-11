@@ -18,6 +18,7 @@ export type Change = {
 	breaking: boolean;
 	detail: string;
 	confidence: Confidence;
+	callers?: string[];
 };
 
 type Location = Pick<Change, "method" | "path" | "status">;
@@ -37,6 +38,10 @@ export function meetsConfidence(
 
 function lowest(a: Confidence, b: Confidence): Confidence {
 	return CONFIDENCE_RANK[a] <= CONFIDENCE_RANK[b] ? a : b;
+}
+
+function withCallers(change: Change, field: FieldContract): Change {
+	return field.callers ? { ...change, callers: field.callers } : change;
 }
 
 export function diffContracts(base: Contract, current: Contract): Change[] {
@@ -133,32 +138,47 @@ function diffResponse(
 		const currentField = current.fields[field];
 		if (!currentField) {
 			removed.add(field);
-			changes.push({
-				...location,
-				field,
-				mark: "-",
-				breaking: true,
-				detail: `presence ${baseField.presence} → removed`,
-				confidence,
-			});
+			changes.push(
+				withCallers(
+					{
+						...location,
+						field,
+						mark: "-",
+						breaking: true,
+						detail: `presence ${baseField.presence} → removed`,
+						confidence,
+					},
+					baseField,
+				),
+			);
 			continue;
 		}
 		for (const change of diffField(baseField, currentField)) {
-			changes.push({ ...location, field, mark: "~", confidence, ...change });
+			changes.push(
+				withCallers(
+					{ ...location, field, mark: "~", confidence, ...change },
+					baseField,
+				),
+			);
 		}
 	}
 	const added = new Set<string>();
 	for (const [field, currentField] of Object.entries(current.fields)) {
 		if (base.fields[field] || isUnder(field, added)) continue;
 		added.add(field);
-		changes.push({
-			...location,
-			field,
-			mark: "+",
-			breaking: false,
-			detail: `new field (${currentField.presence})`,
-			confidence: lowest(currentField.confidence, currentConfidence),
-		});
+		changes.push(
+			withCallers(
+				{
+					...location,
+					field,
+					mark: "+",
+					breaking: false,
+					detail: `new field (${currentField.presence})`,
+					confidence: lowest(currentField.confidence, currentConfidence),
+				},
+				currentField,
+			),
+		);
 	}
 	return changes;
 }

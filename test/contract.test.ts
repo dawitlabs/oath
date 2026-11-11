@@ -49,3 +49,16 @@ test("rejects files that are not contracts", () => {
 	);
 	assert.throws(() => parseContract("nope", "x.json"), /not valid JSON/);
 });
+
+test("records which callers saw each field", () => {
+	const contract = buildContract(
+		[
+			{ ...sample({ id: "a", legacy: 1 }), caller: "web" },
+			{ ...sample({ id: "b" }), caller: "ios" },
+		],
+		"items",
+	);
+	const fields = contract.endpoints[0]?.responses["200"]?.fields ?? {};
+	assert.deepEqual(fields.id?.callers, ["ios", "web"]);
+	assert.deepEqual(fields.legacy?.callers, ["web"]);
+});

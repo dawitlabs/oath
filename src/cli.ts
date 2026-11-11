@@ -1,151 +1,87 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import {
-	buildContract,
-	type Confidence,
-	type Contract,
-	parseContract,
-} from "./contract.ts";
-import { type Change, diffContracts, meetsConfidence } from "./diff.ts";
-import { formatContract, formatDiff } from "./format.ts";
-import { readTraffic, type Sample } from "./traffic.ts";
+	type Flags,
+	runCapture,
+	runCheck,
+	runContract,
+	runDiff,
+	runSpec,
+	UsageError,
+} from "./commands.ts";
+import { DEFAULT_CALLER_HEADER } from "./traffic.ts";
 
 const HELP = `oath — the contract your traffic already wrote
 
 Usage
+  oath capture --target <url> [--port 8787] [--out traffic.jsonl] [--sample 1]
   oath contract <traffic...> [--out oath.contract.json] [--service name] [--pretty]
-  oath diff <baseline.json> <current.json> [filters] [--json]
-  oath check --contract <baseline.json> <traffic...> [filters] [--json] [--verbose]
+  oath diff <baseline.json> <current.json> [filters] [output]
+  oath check --contract <baseline.json> <traffic...> [filters] [output] [--verbose]
+  oath spec <openapi.json> <contract.json | traffic...> [filters] [output]
 
 Traffic files
   .har    browser or proxy export (JSON responses only)
-  .jsonl  one {"method","path"|"url","status","body"} object per line
+  .jsonl  one {"method","path"|"url","status","body","caller"?} object per line
+
+Callers
+  --caller-header <name>        header that identifies the caller (default user-agent)
 
 Filters
   --only-breaking               hide non-breaking changes
   --min-confidence <level>      high | medium | low (default low)
   --ignore <field>              ignore a field and its children (repeatable)
 
+Output
+  --json                        machine-readable changes
+  --markdown                    GitHub-flavored markdown for PR comments
+
 Exit codes
-  0 no breaking changes · 1 breaking changes found · 2 error`;
+  0 no breaking changes · 1 breaking changes or spec violations · 2 error`;
 
 function parse(argv: string[]) {
 	return parseArgs({
 		args: argv,
 		allowPositionals: true,
 		options: {
-			out: { type: "string", default: "oath.contract.json" },
+			out: { type: "string" },
 			service: { type: "string" },
 			pretty: { type: "boolean", default: false },
 			contract: { type: "string" },
 			json: { type: "boolean", default: false },
+			markdown: { type: "boolean", default: false },
 			verbose: { type: "boolean", default: false },
 			"only-breaking": { type: "boolean", default: false },
 			"min-confidence": { type: "string", default: "low" },
 			ignore: { type: "string", multiple: true, default: [] },
+			"caller-header": { type: "string", default: DEFAULT_CALLER_HEADER },
+			target: { type: "string" },
+			port: { type: "string", default: "8787" },
+			sample: { type: "string", default: "1" },
 			help: { type: "boolean", short: "h", default: false },
 			version: { type: "boolean", short: "v", default: false },
 		},
 	});
 }
 
-type Values = ReturnType<typeof parse>["values"];
-
-class UsageError extends Error {}
-
-async function loadSamples(files: string[]): Promise<Sample[]> {
-	if (files.length === 0) throw new UsageError("No traffic files given");
-	const results = await Promise.all(files.map(readTraffic));
-	const skipped = results.reduce((total, result) => total + result.skipped, 0);
-	const samples = results.flatMap((result) => result.samples);
-	if (skipped > 0) {
-		process.stderr.write(
-			`Skipped ${skipped} entries without a JSON response body\n`,
-		);
-	}
-	if (samples.length === 0) {
-		throw new UsageError(`No JSON responses found in ${files.join(", ")}`);
-	}
-	return samples;
-}
-
-async function loadContract(file: string): Promise<Contract> {
-	const text = await readFile(file, "utf8").catch(() => {
-		throw new UsageError(`Cannot read ${file}`);
-	});
-	return parseContract(text, file);
-}
-
-function toConfidence(value: string): Confidence {
-	if (value === "high" || value === "medium" || value === "low") return value;
-	throw new UsageError(
-		`--min-confidence must be high, medium, or low (got "${value}")`,
-	);
-}
-
-function applyFilters(changes: Change[], values: Values): Change[] {
-	const minimum = toConfidence(values["min-confidence"]);
-	return changes.filter((change) => {
-		if (values["only-breaking"] && !change.breaking) return false;
-		if (!meetsConfidence(change.confidence, minimum)) return false;
-		const field = change.field;
-		if (!field) return true;
-		return !values.ignore.some(
-			(ignored) =>
-				field === ignored ||
-				field.startsWith(`${ignored}.`) ||
-				field.startsWith(`${ignored}[]`),
-		);
-	});
-}
-
-function report(changes: Change[], title: string, values: Values): number {
-	const output = values.json
-		? JSON.stringify({ changes }, null, 2)
-		: formatDiff(changes, title);
-	process.stdout.write(`${output}\n`);
-	return changes.some((change) => change.breaking) ? 1 : 0;
-}
-
-async function runContract(files: string[], values: Values): Promise<number> {
-	const samples = await loadSamples(files);
-	const service = values.service ?? basename(process.cwd());
-	const contract = buildContract(samples, service);
-	await writeFile(values.out, `${JSON.stringify(contract, null, 2)}\n`);
-	if (values.pretty) process.stdout.write(`${formatContract(contract)}\n\n`);
-	process.stdout.write(
-		`Wrote ${values.out} — ${contract.endpoints.length} endpoints from ${samples.length} samples\n`,
-	);
-	return 0;
-}
-
-async function runDiff(files: string[], values: Values): Promise<number> {
-	const [baseFile, currentFile] = files;
-	if (!baseFile || !currentFile || files.length > 2) {
-		throw new UsageError("diff needs exactly two contract files");
-	}
-	const [base, current] = await Promise.all([
-		loadContract(baseFile),
-		loadContract(currentFile),
-	]);
-	const changes = applyFilters(diffContracts(base, current), values);
-	return report(changes, `${baseFile} → ${currentFile}`, values);
-}
-
-async function runCheck(files: string[], values: Values): Promise<number> {
-	if (!values.contract)
-		throw new UsageError("check needs --contract <baseline.json>");
-	const [base, samples] = await Promise.all([
-		loadContract(values.contract),
-		loadSamples(files),
-	]);
-	const current = buildContract(samples, base.service);
-	const changes = applyFilters(diffContracts(base, current), values);
-	const hasBreaking = changes.some((change) => change.breaking);
-	if (!hasBreaking && !values.verbose && !values.json) return 0;
-	return report(changes, `${values.contract} → observed traffic`, values);
+function toFlags(values: ReturnType<typeof parse>["values"]): Flags {
+	return {
+		out: values.out,
+		service: values.service,
+		pretty: values.pretty,
+		contract: values.contract,
+		json: values.json,
+		markdown: values.markdown,
+		verbose: values.verbose,
+		onlyBreaking: values["only-breaking"],
+		minConfidence: values["min-confidence"],
+		ignore: values.ignore,
+		callerHeader: values["caller-header"],
+		target: values.target,
+		port: values.port,
+		sample: values.sample,
+	};
 }
 
 async function version(): Promise<string> {
@@ -170,9 +106,12 @@ async function main(argv: string[]): Promise<number> {
 		process.stdout.write(`${HELP}\n`);
 		return values.help ? 0 : 2;
 	}
-	if (command === "contract") return runContract(files, values);
-	if (command === "diff") return runDiff(files, values);
-	if (command === "check") return runCheck(files, values);
+	const flags = toFlags(values);
+	if (command === "capture") return runCapture(flags);
+	if (command === "contract") return runContract(files, flags);
+	if (command === "diff") return runDiff(files, flags);
+	if (command === "check") return runCheck(files, flags);
+	if (command === "spec") return runSpec(files, flags);
 	throw new UsageError(`Unknown command "${command}"`);
 }
 

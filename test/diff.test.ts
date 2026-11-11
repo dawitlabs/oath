@@ -52,3 +52,13 @@ test("does not call unobserved endpoints breaking", () => {
 		"- endpoint not observed in current traffic false",
 	]);
 });
+
+test("carries the callers that relied on a removed field", () => {
+	const withCaller = (caller: string) =>
+		samples({ id: "a", legacy: 1 }).map((s) => ({ ...s, caller }));
+	const changes = diffContracts(
+		contractOf(withCaller("partner-acme"), withCaller("ios-app")),
+		contractOf(samples({ id: "a" })),
+	);
+	assert.deepEqual(changes[0]?.callers, ["ios-app", "partner-acme"]);
+});

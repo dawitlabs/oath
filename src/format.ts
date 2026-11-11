@@ -3,6 +3,20 @@ import type { Change } from "./diff.ts";
 
 const count = (n: number): string => n.toLocaleString("en-US");
 
+const VISIBLE_CALLERS = 3;
+
+export function describeCallers(callers: string[] | undefined): string {
+	if (!callers || callers.length === 0) return "";
+	const shown = callers.slice(0, VISIBLE_CALLERS).join(", ");
+	const hidden = callers.length - VISIBLE_CALLERS;
+	return hidden > 0 ? `${shown} +${hidden}` : shown;
+}
+
+function callerCount(callers: string[] | undefined): string {
+	if (!callers) return "";
+	return `${callers.length} caller${callers.length === 1 ? "" : "s"}`;
+}
+
 function table(rows: string[][]): string[] {
 	const widths = rows[0]?.map((_, column) =>
 		Math.max(...rows.map((row) => row[column]?.length ?? 0)),
@@ -32,6 +46,7 @@ export function formatContract(contract: Contract): string {
 				f.presence,
 				f.nullable ? "nullable" : "non-null",
 				f.confidence,
+				callerCount(f.callers),
 			]);
 			if (rows.length === 0) lines.push("    (no JSON fields)");
 			lines.push(...table(rows).map((row) => `    ${row}`));
@@ -40,7 +55,18 @@ export function formatContract(contract: Contract): string {
 	return lines.join("\n");
 }
 
-export function formatDiff(changes: Change[], title: string): string {
+export type Labels = { breaking: string; safe: string };
+
+export const DIFF_LABELS: Labels = {
+	breaking: "breaking",
+	safe: "non-breaking",
+};
+
+export function formatDiff(
+	changes: Change[],
+	title: string,
+	labels: Labels = DIFF_LABELS,
+): string {
 	const lines = [`Oath diff — ${title}`];
 	const groups = new Map<string, Change[]>();
 	for (const change of changes) {
@@ -56,7 +82,8 @@ export function formatDiff(changes: Change[], title: string): string {
 			change.field ?? "",
 			change.detail,
 			change.confidence,
-			change.breaking ? "[breaking]" : "[non-breaking]",
+			`[${change.breaking ? labels.breaking : labels.safe}]`,
+			change.callers ? `seen by ${describeCallers(change.callers)}` : "",
 		]);
 		lines.push(...table(rows).map((row) => `  ${row}`));
 	}
@@ -65,7 +92,7 @@ export function formatDiff(changes: Change[], title: string): string {
 		"",
 		changes.length === 0
 			? "No behavioral differences."
-			: `Summary: ${breaking} breaking, ${changes.length - breaking} non-breaking`,
+			: `Summary: ${breaking} ${labels.breaking}, ${changes.length - breaking} ${labels.safe}`,
 	);
 	return lines.join("\n");
 }

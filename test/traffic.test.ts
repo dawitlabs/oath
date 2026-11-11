@@ -50,7 +50,38 @@ test("parses HAR entries including base64 bodies", () => {
 			],
 		},
 	};
-	const { samples, skipped } = parseHar(JSON.stringify(har), "t.har");
+	const { samples, skipped } = parseHar(JSON.stringify(har), "t.har", {
+		callerHeader: "user-agent",
+	});
 	assert.equal(skipped, 1);
 	assert.deepEqual(samples[0]?.body, { id: 7 });
+});
+
+test("reads callers from JSONL and HAR headers", () => {
+	const jsonl = parseJsonl(
+		'{"method":"GET","path":"/a","status":200,"body":{},"caller":"ios-app"}',
+		"t.jsonl",
+	);
+	assert.equal(jsonl.samples[0]?.caller, "ios-app");
+	const har = {
+		log: {
+			entries: [
+				{
+					request: {
+						method: "GET",
+						url: "https://api.test/a",
+						headers: [{ name: "User-Agent", value: "partner-sdk/2.1 (linux)" }],
+					},
+					response: {
+						status: 200,
+						content: { mimeType: "application/json", text: "{}" },
+					},
+				},
+			],
+		},
+	};
+	const parsed = parseHar(JSON.stringify(har), "t.har", {
+		callerHeader: "user-agent",
+	});
+	assert.equal(parsed.samples[0]?.caller, "partner-sdk/2.1");
 });

@@ -1,4 +1,4 @@
-import { templatePath } from "./template.ts";
+import { learnTemplates } from "./template.ts";
 import { isRecord, type Sample } from "./traffic.ts";
 
 export type Presence = "always" | "sometimes";
@@ -10,6 +10,7 @@ export type FieldContract = {
 	nullable: boolean;
 	samples: number;
 	confidence: Confidence;
+	callers?: string[];
 };
 
 export type ResponseContract = {
@@ -35,6 +36,7 @@ type FieldStats = {
 	present: number;
 	nulls: number;
 	types: Set<string>;
+	callers: Set<string>;
 	container: string;
 };
 
@@ -46,6 +48,7 @@ type ResponseStats = {
 
 const HIGH_CONFIDENCE_SAMPLES = 30;
 const MEDIUM_CONFIDENCE_SAMPLES = 5;
+export const MAX_STORED_CALLERS = 50;
 
 export function confidenceFor(observations: number): Confidence {
 	if (observations >= HIGH_CONFIDENCE_SAMPLES) return "high";
@@ -55,14 +58,15 @@ export function confidenceFor(observations: number): Confidence {
 
 export function buildContract(samples: Sample[], service: string): Contract {
 	const endpoints = new Map<string, Map<number, ResponseStats>>();
+	const templates = learnTemplates(samples.map((sample) => sample.path));
 	for (const sample of samples) {
-		const key = `${sample.method} ${templatePath(sample.path)}`;
+		const key = `${sample.method} ${templates.get(sample.path) ?? sample.path}`;
 		const statuses = endpoints.get(key) ?? new Map<number, ResponseStats>();
 		endpoints.set(key, statuses);
 		const stats = statuses.get(sample.status) ?? newResponseStats();
 		statuses.set(sample.status, stats);
 		stats.samples++;
-		visit(stats, sample.body, "");
+		visit(stats, sample.body, "", sample.caller);
 	}
 	return {
 		oath: 1,
@@ -78,13 +82,22 @@ function newResponseStats(): ResponseStats {
 	return { samples: 0, containers: new Map(), fields: new Map() };
 }
 
-function visit(stats: ResponseStats, value: unknown, path: string): void {
+function visit(
+	stats: ResponseStats,
+	value: unknown,
+	path: string,
+	caller: string | undefined,
+): void {
 	if (Array.isArray(value)) {
 		const elementPath = `${path}[]`;
 		for (const item of value) {
 			increment(stats.containers, `${elementPath}#`);
-			record(stats, elementPath, `${elementPath}#`, item);
-			visit(stats, item, elementPath);
+			record(
+				stats,
+				{ path: elementPath, container: `${elementPath}#`, caller },
+				item,
+			);
+			visit(stats, item, elementPath, caller);
 		}
 		return;
 	}
@@ -92,25 +105,24 @@ function visit(stats: ResponseStats, value: unknown, path: string): void {
 	increment(stats.containers, path);
 	for (const [key, child] of Object.entries(value)) {
 		const fieldPath = path === "" ? key : `${path}.${key}`;
-		record(stats, fieldPath, path, child);
-		visit(stats, child, fieldPath);
+		record(stats, { path: fieldPath, container: path, caller }, child);
+		visit(stats, child, fieldPath, caller);
 	}
 }
 
-function record(
-	stats: ResponseStats,
-	path: string,
-	container: string,
-	value: unknown,
-): void {
-	const field = stats.fields.get(path) ?? {
+type Slot = { path: string; container: string; caller: string | undefined };
+
+function record(stats: ResponseStats, slot: Slot, value: unknown): void {
+	const field = stats.fields.get(slot.path) ?? {
 		present: 0,
 		nulls: 0,
 		types: new Set<string>(),
-		container,
+		callers: new Set<string>(),
+		container: slot.container,
 	};
-	stats.fields.set(path, field);
+	stats.fields.set(slot.path, field);
 	field.present++;
+	if (slot.caller) field.callers.add(slot.caller);
 	if (value === null) field.nulls++;
 	else field.types.add(jsonType(value));
 }
@@ -146,13 +158,17 @@ function toResponse(stats: ResponseStats): ResponseContract {
 		const field = stats.fields.get(path);
 		if (!field) continue;
 		const observations = stats.containers.get(field.container) ?? field.present;
-		fields[path] = {
+		const contract: FieldContract = {
 			type: [...field.types].sort().join("|") || "null",
 			presence: field.present >= observations ? "always" : "sometimes",
 			nullable: field.nulls > 0,
 			samples: field.present,
 			confidence: confidenceFor(observations),
 		};
+		if (field.callers.size > 0) {
+			contract.callers = [...field.callers].sort().slice(0, MAX_STORED_CALLERS);
+		}
+		fields[path] = contract;
 	}
 	return { samples: stats.samples, fields };
 }
@@ -210,6 +226,9 @@ function isField(value: unknown): value is FieldContract {
 		(value.presence === "always" || value.presence === "sometimes") &&
 		typeof value.nullable === "boolean" &&
 		typeof value.samples === "number" &&
+		(value.callers === undefined ||
+			(Array.isArray(value.callers) &&
+				value.callers.every((caller) => typeof caller === "string"))) &&
 		(value.confidence === "high" ||
 			value.confidence === "medium" ||
 			value.confidence === "low")
